@@ -1,0 +1,454 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Inspeccion del Vehiculo | L'Oreal Operations</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --black:#1a1a1a; --white:#ffffff; --gray-50:#fafafa; --gray-100:#f5f5f5; --gray-200:#eeeeee; --gray-300:#e0e0e0; --gray-500:#9e9e9e; --gray-700:#616161; --gray-800:#424242; --amber:#c9a84c; --amber-lt:#fdf8ed; --green:#16a34a; --red:#dc2626; --bg:#f5f5f5; --card:#ffffff; --text:#1a1a1a; --muted:#757575; --line:#e0e0e0; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:Arial, Helvetica, sans-serif; font-size:14px; font-weight:700; }
+  .page { width:min(1000px, calc(100% - 24px)); margin:0 auto; padding:18px 0 36px; }
+  .header { background:var(--card); border:1px solid var(--line); border-radius:18px; overflow:hidden; margin-bottom:16px; display:grid; grid-template-columns:180px 1fr 200px; }
+  .brand { background:#000; padding:18px 16px; color:#fff; }
+  .brand-division { font-size:8px; letter-spacing:5px; color:rgba(255,255,255,.5); text-transform:uppercase; margin-top:6px; }
+  .brand-tag { margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,.12); font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--amber); }
+  .title { padding:22px 26px; border-left:3px solid var(--amber); }
+  .title h1 { margin:0; font-size:19px; }
+  .title p { margin:6px 0 0; color:var(--muted); font-size:12px; }
+  .meta-box { padding:14px 16px; border-left:1px solid var(--line); background:var(--gray-50); font-size:10px; }
+  .meta-row { display:flex; justify-content:space-between; gap:8px; }
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:18px; margin-bottom:16px; overflow:hidden; }
+  .panel-head { padding:16px 20px; border-bottom:1px solid var(--line); background:var(--gray-50); }
+  .panel-head h2 { margin:0; font-size:15px; }
+  .panel-body { padding:20px; }
+  .form-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .field.span-2 { grid-column:span 2; }
+  .field-label { display:block; margin-bottom:6px; font-size:12px; color:var(--gray-700); font-weight:800; }
+  .field-label .req { color:var(--red); }
+  input, select, textarea { width:100%; border:1px solid var(--line); border-radius:10px; padding:11px 13px; font-size:14px; font-weight:700; background:#fff; color:var(--text); font-family:inherit; }
+  textarea { min-height:90px; resize:vertical; }
+  .checklist, .checklist * { font-family:'Poppins', Arial, sans-serif; }
+  .checklist { border:1px solid var(--line); border-radius:14px; overflow-x:auto; background:#fff; }
+  .checklist-head, .check-item { display:grid; grid-template-columns:40px minmax(240px,1fr) 130px 220px; min-width:820px; }
+  .checklist-head { background:var(--black); color:var(--white); font-size:11px; border-radius:13px 13px 0 0; }
+  .checklist-head div { padding:12px 11px; border-right:1px solid rgba(255,255,255,.1); display:flex; align-items:center; }
+  .check-item { border-bottom:1px solid var(--line); background:#fff; }
+  .check-item.sub .check-act { padding-left:26px; color:var(--gray-800); }
+  .check-item.titulo { background:var(--amber-lt); }
+  .check-cell { padding:11px; border-right:1px solid var(--line); display:flex; align-items:center; min-height:56px; font-size:13px; flex-wrap:wrap; gap:6px; }
+  .check-num { justify-content:center; font-size:14px; }
+  .yn-grid { width:100%; display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .yn-card { border:1px solid var(--line); background:var(--gray-100); border-radius:9px; cursor:pointer; text-align:center; font-size:13px; min-height:36px; display:flex; align-items:center; justify-content:center; }
+  .yn-card input { display:none; }
+  .yn-card:has(input[value="SI"]:checked) { background:var(--green); color:#fff; border-color:var(--green); }
+  .yn-card:has(input[value="NO"]:checked) { background:var(--red); color:#fff; border-color:var(--red); }
+  .attach-cell { flex-direction:column; align-items:stretch; gap:6px; width:100%; }
+  .attach-cell input[type="date"] { min-height:34px; padding:6px 8px; font-size:12px; }
+  .attach-cell input[type="file"] { display:none; }
+  .attach-btn { width:100%; min-height:40px; border:1px solid var(--line); background:var(--gray-100); color:var(--gray-700); border-radius:9px; padding:6px 8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; text-align:center; font-size:11px; font-weight:800; cursor:pointer; font-family:'Poppins', Arial, sans-serif; }
+  .attach-btn.has-file { background:var(--amber); color:#fff; border-color:var(--amber); }
+  .req-tag { color:var(--red); font-size:10px; }
+  .no-attach { font-size:11px; color:var(--gray-500); text-align:center; width:100%; }
+  .actions { display:grid; grid-template-columns:repeat(2,minmax(150px,1fr)); gap:12px; margin-top:18px; }
+  button { border:0; border-radius:12px; padding:13px 16px; min-height:50px; font-size:14px; font-weight:800; cursor:pointer; font-family:inherit; }
+  button:disabled { opacity:.6; cursor:not-allowed; }
+  .btn-green { background:var(--green); color:#fff; }
+  .btn-clear { background:var(--gray-200); color:var(--black); border:1px solid var(--line); }
+  @media (max-width:900px) {
+    .header { grid-template-columns:1fr; }
+    .form-grid { grid-template-columns:repeat(2,1fr); }
+    .checklist-head { display:none; }
+    .checklist { border:0; display:grid; gap:10px; }
+    .check-item { border:1px solid var(--line); border-radius:14px; overflow:hidden; display:grid; grid-template-columns:40px 1fr; min-width:0; }
+    .check-cell { border-right:0; border-bottom:1px solid var(--line); }
+    .check-num { grid-row:span 3; background:var(--black); color:#fff; align-items:flex-start; padding-top:14px; justify-content:center; }
+  }
+  @media (max-width:560px) { .form-grid { grid-template-columns:1fr; } .actions { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="header">
+    <div class="brand">
+      <div style="font-weight:800;font-size:18px;">L'OREAL</div>
+      <div class="brand-division">Operations</div>
+      <div class="brand-tag">Formulario Interno</div>
+    </div>
+    <div class="title"><h1>Inspeccion del Vehiculo</h1><p>Formato de verificacion previa al despacho</p></div>
+    <div class="meta-box">
+      <div class="meta-row"><span>Codigo:</span><span>F-T-01</span></div>
+      <div class="meta-row"><span>Pais:</span><span id="paisLabel">-</span></div>
+    </div>
+  </header>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Datos generales</h2></div>
+    <div class="panel-body"><div class="form-grid" id="formGrid"><p>Cargando...</p></div></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Items de inspeccion</h2></div>
+    <div class="panel-body"><div class="checklist" id="checklist">Cargando checklist...</div></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Observaciones</h2></div>
+    <div class="panel-body"><textarea id="observacionesGenerales" placeholder="Observaciones generales..."></textarea></div>
+  </section>
+
+  <div class="actions">
+    <button class="btn-green" onclick="completarInspeccion()">Completar Inspeccion</button>
+    <button class="btn-clear" onclick="limpiarFormulario()">Limpiar formulario</button>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://ybqblngehgpqthmjsisj.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlicWJsbmdlaGdwcXRobWpzaXNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyMDY5MjYsImV4cCI6MjEwMzc4MjkyNn0.QOdM7HxPlRhdoA4X8xtIRXCK_noRgXygT1CtgZVdB3E";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const params = new URLSearchParams(window.location.search);
+const PAIS_CODIGO = (params.get('pais') || 'CO').toUpperCase();
+
+let PAIS_ID = null, TRANSPORTADORAS = [], ITEMS = [];
+const archivosFoto = {}, archivosPdf = {};
+
+async function inicializar() {
+  document.getElementById('paisLabel').innerText = PAIS_CODIGO;
+  const { data: pais, error: errPais } = await supabase.from('paises').select('id, nombre').eq('codigo', PAIS_CODIGO).single();
+  if (errPais || !pais) {
+    document.getElementById('checklist').innerHTML = '<p style="color:red">Pais no configurado. Usa ?pais=CO o ?pais=PE en la URL.</p>';
+    document.getElementById('formGrid').innerHTML = '';
+    return;
+  }
+  PAIS_ID = pais.id;
+  const { data: transp } = await supabase.from('transportadoras').select('id, nombre').eq('pais_id', PAIS_ID);
+  TRANSPORTADORAS = transp || [];
+  const { data: items } = await supabase.from('checklist_config').select('*').eq('pais_id', PAIS_ID).eq('activo', true).order('numero');
+  ITEMS = items || [];
+  renderDatosGenerales();
+  renderChecklist();
+  document.getElementById('fechaInspeccion').value = new Date().toISOString().slice(0,10);
+}
+
+function renderDatosGenerales() {
+  const opcionesTransportadora = TRANSPORTADORAS.map(t => `<option value="${t.id}">${esc(t.nombre)}</option>`).join('');
+  const campoEspecifico = (PAIS_CODIGO === 'PE')
+    ? `<div class="field span-2"><label class="field-label" for="destino">Destino <span class="req">*</span></label>
+       <select id="destino" required><option value="">Seleccione</option><option value="Lima">Lima</option><option value="Provincia">Provincia</option></select></div>`
+    : `<div class="field span-2"><label class="field-label" for="tipoVehiculo">Tipo de vehiculo <span class="req">*</span></label>
+       <select id="tipoVehiculo" required><option value="">Seleccione</option>
+       <option value="Carry">Carry</option><option value="NHR - 3 estibas">NHR - 3 estibas</option>
+       <option value="Turbo - 6 a 8 estibas">Turbo - 6 a 8 estibas</option><option value="Sencillo - 10 estibas">Sencillo - 10 estibas</option>
+       <option value="Patineta o minimula - 20 estibas">Patineta o minimula - 20 estibas</option>
+       <option value="Electrico NHR">Electrico NHR</option><option value="Electrico Turbo">Electrico Turbo</option></select></div>`;
+
+  document.getElementById('formGrid').innerHTML = `
+    <div class="field"><label class="field-label" for="fechaInspeccion">Fecha de inspeccion <span class="req">*</span></label><input id="fechaInspeccion" type="date" required /></div>
+    <div class="field"><label class="field-label" for="transportadora">Transportadora <span class="req">*</span></label><select id="transportadora" required><option value="">Seleccione</option>${opcionesTransportadora}</select></div>
+    <div class="field"><label class="field-label" for="responsable">Responsable de inspeccion <span class="req">*</span></label><input id="responsable" type="text" required /></div>
+    <div class="field span-2"><label class="field-label" for="conductor">Nombre conductor <span class="req">*</span></label><input id="conductor" type="text" required /></div>
+    <div class="field"><label class="field-label" for="tarjetaPropiedad">N. tarjeta de propiedad <span class="req">*</span></label><input id="tarjetaPropiedad" type="text" required /></div>
+    ${campoEspecifico}
+    <div class="field"><label class="field-label" for="placa">Placa de vehiculo <span class="req">*</span></label><input id="placa" type="text" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()" required /></div>
+  `;
+}
+
+function cabecera() { return `<div class="checklist-head"><div>N.</div><div>Actividad</div><div>Cumple</div><div>Evidencia</div></div>`; }
+
+function celdaAdjunto(item) {
+  const id = item.id;
+  if (item.tipo === 'photo') {
+    const fechaExtra = item.requiere_fecha ? `<input id="fechaItem_${id}" type="date" />` : '';
+    return `<div class="check-cell attach-cell">${fechaExtra}
+      <button type="button" class="attach-btn" id="btnFoto_${id}" onclick="document.getElementById('foto_${id}').click()"><span>Adjuntar foto(s)</span><span class="req-tag">Obligatorio</span></button>
+      <input id="foto_${id}" type="file" accept="image/*" multiple onchange="cargarFoto(event, ${id})" /></div>`;
+  }
+  if (item.tipo === 'pdf') {
+    return `<div class="check-cell attach-cell"><input id="fechaItem_${id}" type="date" />
+      <button type="button" class="attach-btn" id="btnPdf_${id}" onclick="document.getElementById('pdf_${id}').click()"><span>Adjuntar PDF</span><span class="req-tag">Obligatorio</span></button>
+      <input id="pdf_${id}" type="file" accept="application/pdf" onchange="cargarPdf(event, ${id})" /></div>`;
+  }
+  if (item.tipo === 'photo_or_pdf') {
+    return `<div class="check-cell attach-cell">
+      <div style="display:flex; gap:6px; width:100%;">
+        <button type="button" class="attach-btn" id="btnFoto_${id}" onclick="document.getElementById('foto_${id}').click()">Foto</button>
+        <button type="button" class="attach-btn" id="btnPdf_${id}" onclick="document.getElementById('pdf_${id}').click()">PDF</button>
+      </div>
+      <input id="foto_${id}" type="file" accept="image/*" multiple onchange="cargarFoto(event, ${id})" />
+      <input id="pdf_${id}" type="file" accept="application/pdf" onchange="cargarPdf(event, ${id})" />
+      <span class="req-tag" style="text-align:center;width:100%;">Elige una opcion</span></div>`;
+  }
+  if (item.tipo === 'condicional') {
+    return `<div class="check-cell attach-cell">
+      <input id="mercancia_${id}" type="text" placeholder="Especifique mercancia" style="display:none" />
+      <button type="button" class="attach-btn" id="btnFoto_${id}" onclick="document.getElementById('foto_${id}').click()"><span>Adjuntar foto</span><span class="req-tag">Obligatorio</span></button>
+      <input id="foto_${id}" type="file" accept="image/*" multiple onchange="cargarFoto(event, ${id})" /></div>`;
+  }
+  return `<div class="check-cell attach-cell"><span class="no-attach">No requiere adjunto</span></div>`;
+}
+
+function filaHTML(item) {
+  const claseSub = item.es_sub ? ' sub' : '';
+  const claseTitulo = item.es_titulo ? ' titulo' : '';
+  return `<div class="check-item${claseSub}${claseTitulo}">
+    <div class="check-cell check-num">${item.numero}</div>
+    <div class="check-cell check-act">${esc(item.actividad)}</div>
+    <div class="check-cell"><div class="yn-grid">
+      <label class="yn-card"><input type="radio" name="c_${item.id}" value="SI" onclick="toggleCondicional(${item.id}, '${item.tipo}', 'SI')" required />Si</label>
+      <label class="yn-card"><input type="radio" name="c_${item.id}" value="NO" onclick="toggleCondicional(${item.id}, '${item.tipo}', 'NO')" />No</label>
+    </div></div>
+    ${celdaAdjunto(item)}
+  </div>`;
+}
+
+function toggleCondicional(id, tipo, valor) {
+  if (tipo !== 'condicional') return;
+  const campoMercancia = document.getElementById(`mercancia_${id}`);
+  if (valor === 'SI') { campoMercancia.style.display = 'block'; campoMercancia.required = true; }
+  else { campoMercancia.style.display = 'none'; campoMercancia.required = false; campoMercancia.value = ''; }
+}
+
+function renderChecklist() {
+  const c = document.getElementById('checklist');
+  c.innerHTML = cabecera();
+  ITEMS.forEach(item => c.insertAdjacentHTML('beforeend', filaHTML(item)));
+}
+
+function cargarFoto(e, id) {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  archivosFoto[id] = files;
+  const btn = document.getElementById(`btnFoto_${id}`);
+  btn.classList.add('has-file');
+  btn.innerHTML = `<span>${files.length} foto(s) cargada(s)</span>`;
+}
+
+function cargarPdf(e, id) {
+  const f = e.target.files[0];
+  if (!f) return;
+  if (f.type !== 'application/pdf') { alert('Debe ser un PDF.'); e.target.value=''; return; }
+  archivosPdf[id] = f;
+  const btn = document.getElementById(`btnPdf_${id}`);
+  btn.classList.add('has-file');
+  btn.innerHTML = `<span>${esc(f.name.substring(0,15))}</span>`;
+}
+
+function validarTodo() {
+  const camposBase = ['fechaInspeccion','transportadora','responsable','conductor','tarjetaPropiedad','placa'];
+  camposBase.push(PAIS_CODIGO === 'PE' ? 'destino' : 'tipoVehiculo');
+  for (const id of camposBase) {
+    if (!campo(id)) { alert('Falta diligenciar: ' + id); document.getElementById(id).focus(); return false; }
+  }
+  for (const item of ITEMS) {
+    const valor = radioVal(`c_${item.id}`);
+    if (!valor) { alert(`Item ${item.numero}: selecciona Si o No.`); return false; }
+    if (item.tipo === 'photo' && !(archivosFoto[item.id]?.length)) { alert(`Item ${item.numero}: falta la foto.`); return false; }
+    if (item.tipo === 'photo' && item.requiere_fecha && !campo(`fechaItem_${item.id}`)) { alert(`Item ${item.numero}: falta la fecha.`); return false; }
+    if (item.tipo === 'pdf' && !archivosPdf[item.id]) { alert(`Item ${item.numero}: falta el PDF.`); return false; }
+    if (item.tipo === 'photo_or_pdf' && !archivosFoto[item.id]?.length && !archivosPdf[item.id]) { alert(`Item ${item.numero}: adjunta foto o PDF.`); return false; }
+    if (item.tipo === 'condicional') {
+      if (!(archivosFoto[item.id]?.length)) { alert(`Item ${item.numero}: falta la foto.`); return false; }
+      if (valor === 'SI' && !campo(`mercancia_${item.id}`)) { alert(`Item ${item.numero}: especifica la mercancia.`); return false; }
+    }
+  }
+  return true;
+}
+
+async function completarInspeccion() {
+  if (!validarTodo()) return;
+  const btn = document.querySelector('.btn-green');
+  btn.disabled = true; btn.innerHTML = 'Guardando...';
+  try {
+    const { data: inspeccion, error: errIns } = await supabase.from('inspecciones').insert({
+      pais_id: PAIS_ID, fecha_inspeccion: campo('fechaInspeccion'), transportadora_id: campo('transportadora'),
+      responsable: campo('responsable'), conductor: campo('conductor'), tarjeta_propiedad: campo('tarjetaPropiedad'),
+      destino: PAIS_CODIGO === 'PE' ? campo('destino') : null, tipo_vehiculo: PAIS_CODIGO === 'CO' ? campo('tipoVehiculo') : null,
+      placa: campo('placa'), observaciones: campo('observacionesGenerales'), estado: 'pending'
+    }).select().single();
+    if (errIns) throw errIns;
+    const inspeccionId = inspeccion.id;
+
+    for (const item of ITEMS) {
+      await supabase.from('inspeccion_respuestas').insert({
+        inspeccion_id: inspeccionId, checklist_config_id: item.id, cumple: radioVal(`c_${item.id}`),
+        fecha_vencimiento: item.requiere_fecha ? campo(`fechaItem_${item.id}`) : null,
+        observacion: item.tipo === 'condicional' ? campo(`mercancia_${item.id}`) : null
+      });
+      if (archivosFoto[item.id]) {
+        for (let i = 0; i < archivosFoto[item.id].length; i++) await subirArchivo(inspeccionId, item.id, archivosFoto[item.id][i], 'foto', i);
+      }
+      if (archivosPdf[item.id]) await subirArchivo(inspeccionId, item.id, archivosPdf[item.id], 'pdf', 0);
+    }
+
+    const pdfBlob = await generarPDFEvidencias();
+    const pathEvidencias = `${PAIS_CODIGO}/${campo('fechaInspeccion')}/${campo('placa')}_evidencias_${Date.now()}.pdf`;
+    await supabase.storage.from('inspecciones').upload(pathEvidencias, pdfBlob);
+    await supabase.from('inspecciones').update({ estado: 'completo' }).eq('id', inspeccionId);
+    alert('Inspeccion guardada correctamente.');
+    limpiarFormulario();
+  } catch (err) {
+    console.error(err);
+    alert('Error guardando: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.innerHTML = 'Completar Inspeccion';
+  }
+}
+
+async function subirArchivo(inspeccionId, itemId, file, tipo, idx) {
+  const archivoFinal = tipo === 'foto' ? await comprimirParaStorage(file) : file;
+  const ext = tipo === 'pdf' ? 'pdf' : 'jpg';
+  const path = `${PAIS_CODIGO}/${campo('fechaInspeccion')}/${campo('placa')}_item${itemId}_${idx}_${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from('inspecciones').upload(path, archivoFinal);
+  if (error) throw error;
+  await supabase.from('inspeccion_archivos').insert({ inspeccion_id: inspeccionId, checklist_config_id: itemId, tipo_archivo: tipo, storage_path: path });
+}
+
+async function generarPDFEvidencias() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const PW = 210, PH = 297, M = 14, CW = PW - M * 2;
+  doc.setFillColor(26,26,26); doc.rect(0,0,PW,24,'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(14); doc.setFont('helvetica','bold');
+  doc.text("L'OREAL OPERATIONS - Evidencias Inspeccion del Vehiculo", PW/2, 10, { align:'center' });
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text('Pais: ' + PAIS_CODIGO, PW/2, 17, { align:'center' });
+  doc.setFillColor(201,168,76); doc.rect(0,24,PW,2,'F');
+  let y = 35;
+  doc.setTextColor(26,26,26); doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('Datos generales', M, y); y += 2;
+  doc.setDrawColor(201,168,76); doc.setLineWidth(0.4); doc.line(M, y, M+CW, y); y += 7;
+  const generales = [
+    ['Fecha inspeccion', campo('fechaInspeccion')], ['Responsable', campo('responsable')],
+    ['Conductor', campo('conductor')], ['Tarjeta propiedad', campo('tarjetaPropiedad')], ['Placa', campo('placa')]
+  ];
+  if (PAIS_CODIGO === 'PE') generales.splice(4,0,['Destino', campo('destino')]);
+  else generales.splice(4,0,['Tipo de vehiculo', campo('tipoVehiculo')]);
+  generales.forEach(([lbl,val]) => {
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.text(lbl+':', M, y);
+    doc.setFont('helvetica','normal'); doc.text(val||'-', M+50, y); y += 6;
+  });
+  y += 4;
+  doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.text('Resultados del checklist', M, y); y += 2;
+  doc.line(M, y, M+CW, y); y += 5;
+  ITEMS.forEach((item, idx) => {
+    const cumple = radioVal('c_' + item.id) || '-';
+    if (y > PH - 25) { doc.addPage(); y = 20; }
+    doc.setFillColor(idx%2===0?250:255, idx%2===0?250:255, 255);
+    doc.rect(M, y, CW, 9, 'F'); doc.setDrawColor(224,224,224); doc.rect(M, y, CW, 9, 'S');
+    doc.setTextColor(26,26,26); doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    doc.text(String(item.numero), M+3, y+6);
+    let texto = item.actividad;
+    if (item.requiere_fecha) { const f = campo('fechaItem_' + item.id); if (f) texto += ' (Vence: ' + f + ')'; }
+    if (item.tipo === 'condicional' && cumple === 'SI') texto += ' - Mercancia: ' + (campo('mercancia_' + item.id) || '-');
+    doc.text(texto.substring(0,90), M+10, y+6);
+    const esSi = cumple === 'SI';
+    doc.setFillColor(esSi?22:220, esSi?163:38, esSi?74:38);
+    doc.roundedRect(M+150, y+1.5, 16, 6, 2, 2, 'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold');
+    doc.text(esSi?'Si':'No', M+158, y+6, { align:'center' });
+    doc.setTextColor(26,26,26); doc.setFont('helvetica','normal');
+    y += 9;
+  });
+  y += 6;
+  if (y > PH - 40) { doc.addPage(); y = 20; }
+  doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.text('Observaciones generales', M, y); y += 6;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  const obsGen = campo('observacionesGenerales') || 'Sin observaciones.';
+  doc.text(doc.splitTextToSize(obsGen, CW), M, y);
+  for (const item of ITEMS) {
+    const files = archivosFoto[item.id];
+    if (!files || !files.length) continue;
+    for (let i = 0; i < files.length; i++) {
+      const b64 = await file2b64Comprimido(files[i]);
+      doc.addPage();
+      doc.setFillColor(26,26,26); doc.rect(0,0,PW,22,'F');
+      doc.setTextColor(255,255,255); doc.setFontSize(12); doc.setFont('helvetica','bold');
+      doc.text('Item ' + item.numero + ' - Evidencia (' + (i+1) + '/' + files.length + ')', M, 10);
+      doc.setFontSize(8); doc.setFont('helvetica','normal');
+      doc.text(item.actividad.substring(0,110), M, 17);
+      doc.setFillColor(201,168,76); doc.rect(0,22,PW,1.5,'F');
+      const imgY = 31, maxH = PH - imgY - M;
+      try {
+        const dim = await imgDim(b64);
+        const r = dim.w / dim.h;
+        let iw = CW, ih = iw / r;
+        if (ih > maxH) { ih = maxH; iw = ih * r; }
+        doc.addImage(b64, 'JPEG', M + (CW-iw)/2, imgY, iw, ih);
+      } catch(_) {
+        doc.setTextColor(150,150,150);
+        doc.text('[No se pudo cargar la imagen]', M, imgY+20);
+      }
+    }
+  }
+  return doc.output('blob');
+}
+
+function file2b64Comprimido(file) {
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const s = Math.min(1, 1400 / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        res(c.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = rej; img.src = reader.result;
+    };
+    reader.onerror = rej; reader.readAsDataURL(file);
+  });
+}
+
+function imgDim(src) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res({ w: img.width, h: img.height });
+    img.onerror = rej; img.src = src;
+  });
+}
+
+function comprimirParaStorage(file, calidad = 0.75, maxDim = 1600) {
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const s = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob(blob => res(new File([blob], file.name, { type: 'image/jpeg' })), 'image/jpeg', calidad);
+      };
+      img.onerror = rej; img.src = reader.result;
+    };
+    reader.onerror = rej; reader.readAsDataURL(file);
+  });
+}
+
+function limpiarFormulario() {
+  if (!confirm('Limpiar formulario?')) return;
+  document.querySelectorAll('input,textarea,select').forEach(el => { if (el.type!=='radio') el.value=''; });
+  document.querySelectorAll('input[type=radio]').forEach(el => el.checked = false);
+  Object.keys(archivosFoto).forEach(k => delete archivosFoto[k]);
+  Object.keys(archivosPdf).forEach(k => delete archivosPdf[k]);
+  renderChecklist();
+  document.getElementById('fechaInspeccion').value = new Date().toISOString().slice(0,10);
+}
+
+function campo(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+function radioVal(n) { const s = document.querySelector(`input[name="${n}"]:checked`); return s ? s.value : ''; }
+function esc(v) { return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+inicializar();
+</script>
+</body>
+</html>
