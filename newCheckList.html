@@ -111,7 +111,7 @@
 <script>
 const SUPABASE_URL = "https://ybqblngehgpqthmjsisj.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlicWJsbmdlaGdwcXRobWpzaXNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyMDY5MjYsImV4cCI6MjEwMzc4MjkyNn0.QOdM7HxPlRhdoA4X8xtIRXCK_noRgXygT1CtgZVdB3E";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const params = new URLSearchParams(window.location.search);
 const PAIS_CODIGO = (params.get('pais') || 'CO').toUpperCase();
@@ -121,16 +121,16 @@ const archivosFoto = {}, archivosPdf = {};
 
 async function inicializar() {
   document.getElementById('paisLabel').innerText = PAIS_CODIGO;
-  const { data: pais, error: errPais } = await supabase.from('paises').select('id, nombre').eq('codigo', PAIS_CODIGO).single();
+  const { data: pais, error: errPais } = await db.from('paises').select('id, nombre').eq('codigo', PAIS_CODIGO).single();
   if (errPais || !pais) {
     document.getElementById('checklist').innerHTML = '<p style="color:red">Pais no configurado. Usa ?pais=CO o ?pais=PE en la URL.</p>';
     document.getElementById('formGrid').innerHTML = '';
     return;
   }
   PAIS_ID = pais.id;
-  const { data: transp } = await supabase.from('transportadoras').select('id, nombre').eq('pais_id', PAIS_ID);
+  const { data: transp } = await db.from('transportadoras').select('id, nombre').eq('pais_id', PAIS_ID);
   TRANSPORTADORAS = transp || [];
-  const { data: items } = await supabase.from('checklist_config').select('*').eq('pais_id', PAIS_ID).eq('activo', true).order('numero');
+  const { data: items } = await db.from('checklist_config').select('*').eq('pais_id', PAIS_ID).eq('activo', true).order('numero');
   ITEMS = items || [];
   renderDatosGenerales();
   renderChecklist();
@@ -266,7 +266,7 @@ async function completarInspeccion() {
   const btn = document.querySelector('.btn-green');
   btn.disabled = true; btn.innerHTML = 'Guardando...';
   try {
-    const { data: inspeccion, error: errIns } = await supabase.from('inspecciones').insert({
+    const { data: inspeccion, error: errIns } = await db.from('inspecciones').insert({
       pais_id: PAIS_ID, fecha_inspeccion: campo('fechaInspeccion'), transportadora_id: campo('transportadora'),
       responsable: campo('responsable'), conductor: campo('conductor'), tarjeta_propiedad: campo('tarjetaPropiedad'),
       destino: PAIS_CODIGO === 'PE' ? campo('destino') : null, tipo_vehiculo: PAIS_CODIGO === 'CO' ? campo('tipoVehiculo') : null,
@@ -276,7 +276,7 @@ async function completarInspeccion() {
     const inspeccionId = inspeccion.id;
 
     for (const item of ITEMS) {
-      await supabase.from('inspeccion_respuestas').insert({
+      await db.from('inspeccion_respuestas').insert({
         inspeccion_id: inspeccionId, checklist_config_id: item.id, cumple: radioVal(`c_${item.id}`),
         fecha_vencimiento: item.requiere_fecha ? campo(`fechaItem_${item.id}`) : null,
         observacion: item.tipo === 'condicional' ? campo(`mercancia_${item.id}`) : null
@@ -289,8 +289,8 @@ async function completarInspeccion() {
 
     const pdfBlob = await generarPDFEvidencias();
     const pathEvidencias = `${PAIS_CODIGO}/${campo('fechaInspeccion')}/${campo('placa')}_evidencias_${Date.now()}.pdf`;
-    await supabase.storage.from('inspecciones').upload(pathEvidencias, pdfBlob);
-    await supabase.from('inspecciones').update({ estado: 'completo' }).eq('id', inspeccionId);
+    await db.storage.from('inspecciones').upload(pathEvidencias, pdfBlob);
+    await db.from('inspecciones').update({ estado: 'completo' }).eq('id', inspeccionId);
     alert('Inspeccion guardada correctamente.');
     limpiarFormulario();
   } catch (err) {
@@ -305,9 +305,9 @@ async function subirArchivo(inspeccionId, itemId, file, tipo, idx) {
   const archivoFinal = tipo === 'foto' ? await comprimirParaStorage(file) : file;
   const ext = tipo === 'pdf' ? 'pdf' : 'jpg';
   const path = `${PAIS_CODIGO}/${campo('fechaInspeccion')}/${campo('placa')}_item${itemId}_${idx}_${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from('inspecciones').upload(path, archivoFinal);
+  const { error } = await db.storage.from('inspecciones').upload(path, archivoFinal);
   if (error) throw error;
-  await supabase.from('inspeccion_archivos').insert({ inspeccion_id: inspeccionId, checklist_config_id: itemId, tipo_archivo: tipo, storage_path: path });
+  await db.from('inspeccion_archivos').insert({ inspeccion_id: inspeccionId, checklist_config_id: itemId, tipo_archivo: tipo, storage_path: path });
 }
 
 async function generarPDFEvidencias() {
