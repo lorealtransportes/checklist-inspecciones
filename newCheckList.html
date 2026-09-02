@@ -118,7 +118,6 @@ const PAIS_CODIGO = (params.get('pais') || 'CO').toUpperCase();
 let PAIS_ID = null, TRANSPORTADORAS = [], ITEMS = [];
 const archivosFoto = {}, archivosPdf = {};
 
-// Helper nuevo: obtiene el nombre de la transportadora seleccionada, para usarlo en las rutas de Storage
 function nombreTransportadoraActual() {
   const t = TRANSPORTADORAS.find(t => String(t.id) === String(campo('transportadora')));
   return (t ? t.nombre : 'SIN_TRANSPORTADORA').replace(/\s+/g, '_');
@@ -286,17 +285,31 @@ async function completarInspeccion() {
         fecha_vencimiento: item.requiere_fecha ? campo(`fechaItem_${item.id}`) : null,
         observacion: item.tipo === 'condicional' ? campo(`mercancia_${item.id}`) : null
       });
-      if (archivosFoto[item.id]) {
-        for (let i = 0; i < archivosFoto[item.id].length; i++) await subirArchivo(inspeccionId, item.id, archivosFoto[item.id][i], 'foto', i);
-      }
-      if (archivosPdf[item.id]) await subirArchivo(inspeccionId, item.id, archivosPdf[item.id], 'pdf', 0);
     }
 
-    // Ruta del PDF de evidencias, ahora incluye la transportadora
-    const pdfBlob = await generarPDFEvidencias();
+    for (const item of ITEMS) {
+      if (item.tipo === 'pdf' && archivosPdf[item.id]) {
+        await subirDocumentoPDF(inspeccionId, item.id, archivosPdf[item.id], nombreDocumento(item));
+      }
+      if (item.tipo === 'photo_or_pdf') {
+        if (archivosPdf[item.id]) {
+          await subirDocumentoPDF(inspeccionId, item.id, archivosPdf[item.id], nombreDocumento(item));
+        } else if (archivosFoto[item.id]?.length) {
+          const pdfDesdeFoto = await fotoAPdfSimple(archivosFoto[item.id][0], item.actividad);
+          await subirDocumentoPDF(inspeccionId, item.id, pdfDesdeFoto, nombreDocumento(item));
+        }
+      }
+    }
+
     const transpNombre = nombreTransportadoraActual();
-    const pathEvidencias = `${PAIS_CODIGO}/${campo('fechaInspeccion')}/${transpNombre}/${campo('placa')}_evidencias_${Date.now()}.pdf`;
+    const placa = campo('placa');
+    const fecha = campo('fechaInspeccion');
+
+    const pdfBlob = await generarPDFEvidencias();
+    const pathEvidencias = `${PAIS_CODIGO}/${fecha}/${transpNombre}/${placa}_Evidencias_${Date.now()}.pdf`;
     await db.storage.from('inspecciones').upload(pathEvidencias, pdfBlob);
+    await db.from('inspeccion_archivos').insert({ inspeccion_id: inspeccionId, checklist_config_id: null, tipo_archivo: 'pdf', storage_path: pathEvidencias });
+
     await db.from('inspecciones').update({ estado: 'completo' }).eq('id', inspeccionId);
     alert('Inspeccion guardada correctamente.');
     limpiarFormulario();
@@ -308,15 +321,37 @@ async function completarInspeccion() {
   }
 }
 
-async function subirArchivo(inspeccionId, itemId, file, tipo, idx) {
-  const archivoFinal = tipo === 'foto' ? await comprimirParaStorage(file) : file;
-  const ext = tipo === 'pdf' ? 'pdf' : 'jpg';
-  // Ruta ahora incluye la transportadora: PAIS/FECHA/TRANSPORTADORA/archivo
+async function subirDocumentoPDF(inspeccionId, itemId, file, nombreDoc) {
   const transpNombre = nombreTransportadoraActual();
-  const path = `${PAIS_CODIGO}/${campo('fechaInspeccion')}/${transpNombre}/${campo('placa')}_item${itemId}_${idx}_${Date.now()}.${ext}`;
-  const { error } = await db.storage.from('inspecciones').upload(path, archivoFinal);
+  const path = `${PAIS_CODIGO}/${campo('fechaInspeccion')}/${transpNombre}/${campo('placa')}_${nombreDoc}.pdf`;
+  const { error } = await db.storage.from('inspecciones').upload(path, file);
   if (error) throw error;
-  await db.from('inspeccion_archivos').insert({ inspeccion_id: inspeccionId, checklist_config_id: itemId, tipo_archivo: tipo, storage_path: path });
+  await db.from('inspeccion_archivos').insert({ inspeccion_id: inspeccionId, checklist_config_id: itemId, tipo_archivo: 'pdf', storage_path: path });
+}
+
+function nombreDocumento(item) {
+  const txt = item.actividad.toLowerCase();
+  if (txt.includes('soat')) return 'SOAT';
+  if (txt.includes('tecnomecanica') || txt.includes('revision tecnica') || txt.includes('revisión técnica') || txt.includes('tecno')) return 'RevisionTecnica';
+  return 'Documento';
+}
+
+async function fotoAPdfSimple(file, actividad) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const PW = 210, PH = 297, M = 14, CW = PW - M * 2;
+  doc.setFillColor(26,26,26); doc.rect(0,0,PW,20,'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(11); doc.setFont('helvetica','bold');
+  doc.text(actividad.substring(0,100), PW/2, 12, { align:'center' });
+
+  const b64 = await file2b64Comprimido(file);
+  const dim = await imgDim(b64);
+  const r = dim.w / dim.h;
+  let iw = CW, ih = iw / r;
+  const maxH = PH - 40;
+  if (ih > maxH) { ih = maxH; iw = ih * r; }
+  doc.addImage(b64, 'JPEG', M + (CW-iw)/2, 28, iw, ih);
+  return doc.output('blob');
 }
 
 async function generarPDFEvidencias() {
@@ -422,24 +457,6 @@ function imgDim(src) {
     const img = new Image();
     img.onload = () => res({ w: img.width, h: img.height });
     img.onerror = rej; img.src = src;
-  });
-}
-
-function comprimirParaStorage(file, calidad = 0.75, maxDim = 1600) {
-  return new Promise((res, rej) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const s = Math.min(1, maxDim / Math.max(img.width, img.height));
-        const c = document.createElement('canvas');
-        c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
-        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        c.toBlob(blob => res(new File([blob], file.name, { type: 'image/jpeg' })), 'image/jpeg', calidad);
-      };
-      img.onerror = rej; img.src = reader.result;
-    };
-    reader.onerror = rej; reader.readAsDataURL(file);
   });
 }
 
