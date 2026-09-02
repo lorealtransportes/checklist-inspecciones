@@ -6,40 +6,83 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Consulta de Inspecciones | L'Oreal Operations</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  :root { --black:#1a1a1a; --amber:#c9a84c; --green:#16a34a; --red:#dc2626; --bg:#f5f5f5; --line:#e0e0e0; --muted:#757575; }
+  :root {
+    --black:#1a1a1a; --amber:#c9a84c; --amber-lt:#fdf8ed;
+    --green:#16a34a; --green-lt:#f0fdf4; --red:#dc2626; --red-lt:#fef2f2;
+    --bg:#f5f5f5; --line:#e8e8e8; --muted:#8a8a8a; --card:#ffffff;
+  }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); font-family:Arial, Helvetica, sans-serif; color:#1a1a1a; }
-  .page { width:min(1200px, calc(100% - 24px)); margin:0 auto; padding:20px 0 40px; }
-  .header { background:#000; color:#fff; padding:18px 24px; border-radius:14px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
-  .header h1 { margin:0; font-size:18px; }
-  .header .sub { font-size:12px; color:var(--amber); margin-top:4px; }
-  select#filtroPais { padding:8px 12px; border-radius:8px; border:none; font-weight:700; }
-  .filters { background:#fff; border:1px solid var(--line); border-radius:14px; padding:14px 18px; margin-bottom:16px; display:flex; gap:14px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
-  .filters-left { display:flex; gap:14px; flex-wrap:wrap; align-items:center; }
-  .filters input, .filters select { padding:8px 10px; border-radius:8px; border:1px solid var(--line); font-size:13px; }
-  .btn-excel { background:var(--green); color:#fff; border:none; padding:9px 16px; border-radius:8px; font-size:13px; font-weight:800; cursor:pointer; }
-  .btn-excel:disabled { opacity:.6; cursor:not-allowed; }
-  table { width:100%; border-collapse:collapse; background:#fff; border-radius:14px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.05); }
-  th { background:#1a1a1a; color:#fff; text-align:left; padding:10px 12px; font-size:12px; }
-  td { padding:10px 12px; font-size:13px; border-bottom:1px solid var(--line); }
+  body { margin:0; background:var(--bg); font-family:'Inter', -apple-system, BlinkMacSystemFont, sans-serif; color:var(--black); }
+  .page { width:min(1200px, calc(100% - 24px)); margin:0 auto; padding:24px 0 48px; }
+
+  .header {
+    background:linear-gradient(135deg, #1a1a1a 0%, #000 100%);
+    color:#fff; padding:22px 28px; border-radius:18px; margin-bottom:20px;
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;
+    box-shadow:0 6px 20px rgba(0,0,0,.12);
+  }
+  .header h1 { margin:0; font-size:19px; font-weight:800; letter-spacing:-.3px; }
+  .header .sub { font-size:12px; color:var(--amber); margin-top:4px; font-weight:600; letter-spacing:.3px; }
+  .pais-badge { background:var(--amber); color:#1a1a1a; padding:8px 18px; border-radius:10px; font-weight:800; font-size:14px; }
+
+  .filters {
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px 20px; margin-bottom:18px; display:flex; gap:14px; flex-wrap:wrap;
+    align-items:center; justify-content:space-between; box-shadow:0 2px 8px rgba(0,0,0,.03);
+  }
+  .filters-left { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+  .filters input, .filters select {
+    padding:9px 12px; border-radius:10px; border:1px solid var(--line);
+    font-size:13px; font-family:inherit; color:var(--black);
+  }
+  .btn-excel {
+    background:var(--green); color:#fff; border:none; padding:10px 18px;
+    border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit;
+    transition:opacity .15s;
+  }
+  .btn-excel:hover:not(:disabled) { opacity:.85; }
+  .btn-excel:disabled { opacity:.5; cursor:not-allowed; }
+
+  table { width:100%; border-collapse:collapse; background:var(--card); border-radius:16px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,.05); }
+  th { background:var(--black); color:var(--amber); text-align:left; padding:12px 14px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+  td { padding:12px 14px; font-size:13px; border-bottom:1px solid var(--line); font-weight:500; }
   tr:hover td { background:#fafafa; }
-  .badge { padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; color:#fff; }
-  .badge.completo { background:var(--green); }
-  .badge.pending { background:#c9a84c; }
-  .btn-ver { background:#1a1a1a; color:#fff; border:none; padding:6px 12px; border-radius:8px; font-size:12px; cursor:pointer; }
-  .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); align-items:center; justify-content:center; z-index:50; }
+  .badge { padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; }
+  .badge.completo { background:var(--green-lt); color:var(--green); }
+  .badge.pending { background:var(--amber-lt); color:#a3822f; }
+  .btn-ver {
+    background:var(--black); color:#fff; border:none; padding:7px 14px;
+    border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;
+    transition:background .15s;
+  }
+  .btn-ver:hover { background:#333; }
+
+  .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); align-items:center; justify-content:center; z-index:50; padding:20px; }
   .modal-bg.open { display:flex; }
-  .modal { background:#fff; border-radius:14px; width:min(700px, 92vw); max-height:85vh; overflow-y:auto; padding:22px; }
-  .modal h2 { margin-top:0; font-size:17px; }
-  .modal-close { float:right; cursor:pointer; font-weight:800; font-size:18px; }
-  .item-row { border-bottom:1px solid var(--line); padding:10px 0; }
-  .item-row .si { color:var(--green); font-weight:800; }
-  .item-row .no { color:var(--red); font-weight:800; }
-  .item-row a { display:inline-block; margin-right:8px; margin-top:4px; font-size:12px; color:#1a1a1a; text-decoration:underline; }
-  .empty { text-align:center; padding:40px; color:var(--muted); }
+  .modal { background:var(--card); border-radius:20px; width:min(720px, 100%); max-height:88vh; overflow-y:auto; }
+  .modal-head { background:var(--black); color:#fff; padding:20px 26px; border-radius:20px 20px 0 0; position:sticky; top:0; }
+  .modal-head h2 { margin:0; font-size:17px; font-weight:800; }
+  .modal-head .modal-close { float:right; cursor:pointer; font-weight:700; font-size:18px; color:var(--amber); margin-top:-24px; }
+  .modal-body { padding:22px 26px; }
+
+  .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 20px; background:var(--bg); border-radius:12px; padding:16px; margin-bottom:20px; font-size:13px; }
+  .info-grid b { color:var(--muted); font-weight:600; font-size:11px; text-transform:uppercase; display:block; margin-bottom:2px; }
+
+  .item-card { border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px; }
+  .item-card .item-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .item-card .item-num { color:var(--muted); font-weight:700; font-size:12px; }
+  .item-card .item-txt { font-size:13px; font-weight:600; flex:1; }
+  .pill-si { background:var(--green-lt); color:var(--green); padding:3px 10px; border-radius:20px; font-size:11px; font-weight:800; white-space:nowrap; }
+  .pill-no { background:var(--red-lt); color:var(--red); padding:3px 10px; border-radius:20px; font-size:11px; font-weight:800; white-space:nowrap; }
+  .item-card .item-extra { font-size:12px; color:var(--muted); margin-top:6px; }
+  .item-card a { display:inline-block; margin-right:10px; margin-top:8px; font-size:12px; color:var(--black); text-decoration:none; background:var(--amber-lt); padding:5px 12px; border-radius:8px; font-weight:600; }
+  .item-card a:hover { background:var(--amber); }
+
+  .empty { text-align:center; padding:48px; color:var(--muted); font-weight:500; }
+  .error-pais { text-align:center; padding:60px 20px; color:var(--red); font-weight:700; font-size:15px; }
 </style>
 </head>
 <body>
@@ -47,14 +90,9 @@
   <div class="header">
     <div>
       <h1>Consulta de Inspecciones</h1>
-      <div class="sub">L'Oreal Operations - Repositorio de evidencias</div>
+      <div class="sub" id="paisSub">L'OREAL OPERATIONS · REPOSITORIO DE EVIDENCIAS</div>
     </div>
-    <div>
-      <select id="filtroPais" onchange="cambiarPais()">
-        <option value="CO">Colombia</option>
-        <option value="PE">Peru</option>
-      </select>
-    </div>
+    <div class="pais-badge" id="paisBadge">-</div>
   </div>
 
   <div class="filters">
@@ -63,7 +101,7 @@
       <select id="filtroTransportadora" onchange="aplicarFiltros()"><option value="">Todas las transportadoras</option></select>
       <input type="text" id="filtroPlaca" placeholder="Buscar por placa..." oninput="aplicarFiltros()" />
     </div>
-    <button class="btn-excel" id="btnExcel" onclick="exportarExcel()">Descargar Excel</button>
+    <button class="btn-excel" id="btnExcel" onclick="exportarExcel()">⬇ Descargar Excel</button>
   </div>
 
   <table>
@@ -81,9 +119,11 @@
 
 <div class="modal-bg" id="modalBg">
   <div class="modal">
-    <span class="modal-close" onclick="cerrarModal()">✕</span>
-    <h2 id="modalTitulo">Detalle de inspeccion</h2>
-    <div id="modalContenido">Cargando...</div>
+    <div class="modal-head">
+      <span class="modal-close" onclick="cerrarModal()">✕</span>
+      <h2 id="modalTitulo">Detalle de inspeccion</h2>
+    </div>
+    <div class="modal-body" id="modalContenido">Cargando...</div>
   </div>
 </div>
 
@@ -92,20 +132,25 @@ const SUPABASE_URL = "https://ybqblngehgpqthmjsisj.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlicWJsbmdlaGdwcXRobWpzaXNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyMDY5MjYsImV4cCI6MjEwMzc4MjkyNn0.QOdM7HxPlRhdoA4X8xtIRXCK_noRgXygT1CtgZVdB3E";
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Pais FIJO por URL, sin selector, para evitar mezclar datos entre paises
 const params = new URLSearchParams(window.location.search);
-let PAIS_CODIGO = (params.get('pais') || 'CO').toUpperCase();
+const PAIS_CODIGO = (params.get('pais') || '').toUpperCase();
+const NOMBRES_PAIS = { CO: 'Colombia', PE: 'Peru' };
+
 let PAIS_ID = null;
 let INSPECCIONES = [];
 let TRANSPORTADORAS_MAP = {};
+let FILTRADAS_ACTUALES = [];
 
-document.getElementById('filtroPais').value = PAIS_CODIGO;
-
-async function cambiarPais() {
-  PAIS_CODIGO = document.getElementById('filtroPais').value;
-  const url = new URL(window.location);
-  url.searchParams.set('pais', PAIS_CODIGO);
-  window.history.replaceState({}, '', url);
-  await cargarDatos();
+if (!PAIS_CODIGO || !NOMBRES_PAIS[PAIS_CODIGO]) {
+  document.getElementById('paisBadge').innerText = '?';
+  document.querySelector('.page').innerHTML = `
+    <div class="header"><div><h1>Consulta de Inspecciones</h1></div></div>
+    <div class="error-pais">Falta indicar el pais en el enlace.<br/>Usa ?pais=CO o ?pais=PE al final de la URL.</div>
+  `;
+} else {
+  document.getElementById('paisBadge').innerText = NOMBRES_PAIS[PAIS_CODIGO];
+  cargarDatos();
 }
 
 async function cargarDatos() {
@@ -113,7 +158,7 @@ async function cargarDatos() {
 
   const { data: pais } = await db.from('paises').select('id').eq('codigo', PAIS_CODIGO).single();
   if (!pais) {
-    document.getElementById('tablaBody').innerHTML = '<tr><td colspan="7" class="empty">Pais no encontrado.</td></tr>';
+    document.getElementById('tablaBody').innerHTML = '<tr><td colspan="7" class="empty">Pais no encontrado en la base de datos.</td></tr>';
     return;
   }
   PAIS_ID = pais.id;
@@ -139,8 +184,6 @@ async function cargarDatos() {
   INSPECCIONES = inspecciones || [];
   aplicarFiltros();
 }
-
-let FILTRADAS_ACTUALES = [];
 
 function aplicarFiltros() {
   const fecha = document.getElementById('filtroFecha').value;
@@ -181,7 +224,7 @@ async function verDetalle(inspeccionId) {
   document.getElementById('modalContenido').innerHTML = 'Cargando...';
 
   const inspeccion = INSPECCIONES.find(i => i.id === inspeccionId);
-  document.getElementById('modalTitulo').innerText = `Inspeccion - ${inspeccion.placa} (${inspeccion.fecha_inspeccion})`;
+  document.getElementById('modalTitulo').innerText = `${inspeccion.placa} · ${inspeccion.fecha_inspeccion}`;
 
   const { data: respuestas } = await db.from('inspeccion_respuestas')
     .select('*, checklist_config(numero, actividad, tipo)')
@@ -193,42 +236,57 @@ async function verDetalle(inspeccionId) {
     .eq('inspeccion_id', inspeccionId);
 
   const archivosPorItem = {};
+  const archivosGenerales = [];
   (archivos || []).forEach(a => {
-    if (!archivosPorItem[a.checklist_config_id]) archivosPorItem[a.checklist_config_id] = [];
-    archivosPorItem[a.checklist_config_id].push(a);
+    if (a.checklist_config_id === null) {
+      archivosGenerales.push(a);
+    } else {
+      if (!archivosPorItem[a.checklist_config_id]) archivosPorItem[a.checklist_config_id] = [];
+      archivosPorItem[a.checklist_config_id].push(a);
+    }
   });
 
   let html = `
-    <div style="margin-bottom:14px; font-size:13px;">
-      <b>Responsable:</b> ${esc(inspeccion.responsable)} &nbsp; | &nbsp;
-      <b>Conductor:</b> ${esc(inspeccion.conductor)} &nbsp; | &nbsp;
-      <b>Tarjeta:</b> ${esc(inspeccion.tarjeta_propiedad)}<br/>
-      ${inspeccion.destino ? `<b>Destino:</b> ${esc(inspeccion.destino)}` : `<b>Tipo vehiculo:</b> ${esc(inspeccion.tipo_vehiculo || '-')}`}
+    <div class="info-grid">
+      <div><b>Responsable</b>${esc(inspeccion.responsable)}</div>
+      <div><b>Conductor</b>${esc(inspeccion.conductor)}</div>
+      <div><b>Tarjeta propiedad</b>${esc(inspeccion.tarjeta_propiedad)}</div>
+      <div><b>${inspeccion.destino ? 'Destino' : 'Tipo vehiculo'}</b>${esc(inspeccion.destino || inspeccion.tipo_vehiculo || '-')}</div>
     </div>
   `;
 
+  if (archivosGenerales.length) {
+    html += `<div style="margin-bottom:16px;">`;
+    archivosGenerales.forEach(a => {
+      const { data } = db.storage.from('inspecciones').getPublicUrl(a.storage_path);
+      html += `<a href="${data.publicUrl}" target="_blank">📄 PDF de Evidencias Completo</a>`;
+    });
+    html += `</div>`;
+  }
+
   (respuestas || []).forEach(r => {
     const cfg = r.checklist_config;
-    const cumpleClass = r.cumple === 'SI' ? 'si' : 'no';
     const archivosItem = archivosPorItem[r.checklist_config_id] || [];
     const links = archivosItem.map(a => {
       const { data } = db.storage.from('inspecciones').getPublicUrl(a.storage_path);
-      return `<a href="${data.publicUrl}" target="_blank">${a.tipo_archivo === 'pdf' ? '📄 PDF' : '📷 Foto'}</a>`;
+      return `<a href="${data.publicUrl}" target="_blank">📄 Ver documento</a>`;
     }).join('');
 
     html += `
-      <div class="item-row">
-        <b>${cfg?.numero || ''}.</b> ${esc(cfg?.actividad || '')} —
-        <span class="${cumpleClass}">${r.cumple}</span>
-        ${r.fecha_vencimiento ? ` (Vence: ${r.fecha_vencimiento})` : ''}
-        ${r.observacion ? `<br/><i>Mercancia: ${esc(r.observacion)}</i>` : ''}
-        <br/>${links || '<span style="color:#999;font-size:12px;">Sin adjunto</span>'}
+      <div class="item-card">
+        <div class="item-top">
+          <div class="item-txt"><span class="item-num">${cfg?.numero || ''}.</span> ${esc(cfg?.actividad || '')}</div>
+          <span class="${r.cumple === 'SI' ? 'pill-si' : 'pill-no'}">${r.cumple}</span>
+        </div>
+        ${r.fecha_vencimiento ? `<div class="item-extra">Vence: ${r.fecha_vencimiento}</div>` : ''}
+        ${r.observacion ? `<div class="item-extra">Mercancia: ${esc(r.observacion)}</div>` : ''}
+        ${links}
       </div>
     `;
   });
 
   if (inspeccion.observaciones) {
-    html += `<div style="margin-top:14px;"><b>Observaciones generales:</b><br/>${esc(inspeccion.observaciones)}</div>`;
+    html += `<div class="item-card"><b style="display:block;margin-bottom:6px;">Observaciones generales</b>${esc(inspeccion.observaciones)}</div>`;
   }
 
   document.getElementById('modalContenido').innerHTML = html;
@@ -274,14 +332,12 @@ async function exportarExcel() {
     alert('Error generando Excel: ' + err.message);
   } finally {
     btn.disabled = false;
-    btn.innerText = 'Descargar Excel';
+    btn.innerText = '⬇ Descargar Excel';
   }
 }
 
 function cerrarModal() { document.getElementById('modalBg').classList.remove('open'); }
 function esc(v) { return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-cargarDatos();
 </script>
 </body>
 </html>
