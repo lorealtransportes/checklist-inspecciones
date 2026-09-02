@@ -119,6 +119,12 @@ const PAIS_CODIGO = (params.get('pais') || 'CO').toUpperCase();
 let PAIS_ID = null, TRANSPORTADORAS = [], ITEMS = [];
 const archivosFoto = {}, archivosPdf = {};
 
+// Helper nuevo: obtiene el nombre de la transportadora seleccionada, para usarlo en las rutas de Storage
+function nombreTransportadoraActual() {
+  const t = TRANSPORTADORAS.find(t => String(t.id) === String(campo('transportadora')));
+  return (t ? t.nombre : 'SIN_TRANSPORTADORA').replace(/\s+/g, '_');
+}
+
 async function inicializar() {
   document.getElementById('paisLabel').innerText = PAIS_CODIGO;
   const { data: pais, error: errPais } = await db.from('paises').select('id, nombre').eq('codigo', PAIS_CODIGO).single();
@@ -287,8 +293,10 @@ async function completarInspeccion() {
       if (archivosPdf[item.id]) await subirArchivo(inspeccionId, item.id, archivosPdf[item.id], 'pdf', 0);
     }
 
+    // Ruta del PDF de evidencias, ahora incluye la transportadora
     const pdfBlob = await generarPDFEvidencias();
-    const pathEvidencias = `${PAIS_CODIGO}/${campo('fechaInspeccion')}/${campo('placa')}_evidencias_${Date.now()}.pdf`;
+    const transpNombre = nombreTransportadoraActual();
+    const pathEvidencias = `${PAIS_CODIGO}/${campo('fechaInspeccion')}/${transpNombre}/${campo('placa')}_evidencias_${Date.now()}.pdf`;
     await db.storage.from('inspecciones').upload(pathEvidencias, pdfBlob);
     await db.from('inspecciones').update({ estado: 'completo' }).eq('id', inspeccionId);
     alert('Inspeccion guardada correctamente.');
@@ -304,7 +312,9 @@ async function completarInspeccion() {
 async function subirArchivo(inspeccionId, itemId, file, tipo, idx) {
   const archivoFinal = tipo === 'foto' ? await comprimirParaStorage(file) : file;
   const ext = tipo === 'pdf' ? 'pdf' : 'jpg';
-  const path = `${PAIS_CODIGO}/${campo('fechaInspeccion')}/${campo('placa')}_item${itemId}_${idx}_${Date.now()}.${ext}`;
+  // Ruta ahora incluye la transportadora: PAIS/FECHA/TRANSPORTADORA/archivo
+  const transpNombre = nombreTransportadoraActual();
+  const path = `${PAIS_CODIGO}/${campo('fechaInspeccion')}/${transpNombre}/${campo('placa')}_item${itemId}_${idx}_${Date.now()}.${ext}`;
   const { error } = await db.storage.from('inspecciones').upload(path, archivoFinal);
   if (error) throw error;
   await db.from('inspeccion_archivos').insert({ inspeccion_id: inspeccionId, checklist_config_id: itemId, tipo_archivo: tipo, storage_path: path });
