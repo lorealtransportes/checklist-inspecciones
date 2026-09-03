@@ -186,13 +186,18 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     }
 
     // Validacion clave: el pais de la cuenta debe coincidir con el pais elegido
-    const cuentaPais = data.user.user_metadata && data.user.user_metadata.pais;
+   
+  const cuentaPais = data.user.user_metadata && data.user.user_metadata.pais;
 
-    if (cuentaPais !== selectedPais) {
-      await supabaseClient.auth.signOut();
-      loginError.textContent = `Esta cuenta no tiene acceso a ${paisInfo[selectedPais].nombre}.`;
-      return;
-    }
+  const tieneAcceso = cuentaPais === selectedPais ||
+                    (Array.isArray(cuentaPais) && cuentaPais.includes(selectedPais));
+
+  if (!tieneAcceso) {
+  await supabaseClient.auth.signOut();
+  loginError.textContent = `Esta cuenta no tiene acceso a ${paisInfo[selectedPais].nombre}.`;
+  return;
+}
+
 
     showApp(data.session, selectedPais);
   });
@@ -204,18 +209,21 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
   // Si ya hay sesion activa (recarga de pagina), la revalidamos contra un pais
   // guardado temporalmente en la pestaña (no persiste entre sesiones nuevas por seguridad)
-  supabaseClient.auth.getSession().then(({ data }) => {
-    if (data.session) {
-      const cuentaPais = data.session.user.user_metadata && data.session.user.user_metadata.pais;
-      const paisGuardado = sessionStorage.getItem("adminPaisActivo");
-      if (cuentaPais && paisGuardado === cuentaPais) {
-        showApp(data.session, cuentaPais);
-      } else {
-        // Sesion tecnica activa pero sin pais confirmado en esta pestaña: pedir de nuevo el flujo
-        supabaseClient.auth.signOut();
-      }
+ 
+supabaseClient.auth.getSession().then(({ data }) => {
+  if (data.session) {
+    const cuentaPais = data.session.user.user_metadata && data.session.user.user_metadata.pais;
+    const paisGuardado = sessionStorage.getItem("adminPaisActivo");
+    const accesoValido = cuentaPais === paisGuardado ||
+                          (Array.isArray(cuentaPais) && cuentaPais.includes(paisGuardado));
+    if (accesoValido) {
+      showApp(data.session, paisGuardado);
+    } else {
+      supabaseClient.auth.signOut();
     }
-  });
+  }
+});
+
 
   // Guarda el pais activo en la pestaña actual justo cuando el login es exitoso
   supabaseClient.auth.onAuthStateChange((event, session) => {
