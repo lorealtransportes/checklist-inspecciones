@@ -167,9 +167,10 @@ async function listarRecursivo(path) {
     if (item.id === null) {
       const sub = await listarRecursivo(fullPath);
       resultado = resultado.concat(sub);
-    } else {
-      resultado.push(fullPath);
-    }
+  } else if (item.name !== '.emptyFolderPlaceholder') {
+    resultado.push(fullPath);
+  }
+
   }
   return resultado;
 }
