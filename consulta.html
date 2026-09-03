@@ -292,6 +292,7 @@ async function verDetalle(inspeccionId) {
   document.getElementById('modalContenido').innerHTML = html;
 }
 
+
 async function exportarExcel() {
   const btn = document.getElementById('btnExcel');
   if (!FILTRADAS_ACTUALES.length) { alert('No hay datos para exportar con los filtros actuales.'); return; }
@@ -310,21 +311,52 @@ async function exportarExcel() {
       archivosPorInspeccion[a.inspeccion_id].push(data.publicUrl);
     });
 
-    const filas = FILTRADAS_ACTUALES.map(i => ({
-      'Fecha Inspeccion': i.fecha_inspeccion,
-      'Transportadora': TRANSPORTADORAS_MAP[i.transportadora_id] || '',
-      'Responsable': i.responsable,
-      'Conductor': i.conductor,
-      'Tarjeta Propiedad': i.tarjeta_propiedad,
-      'Destino': i.destino || '',
-      'Tipo Vehiculo': i.tipo_vehiculo || '',
-      'Placa': i.placa,
-      'Observaciones': i.observaciones || '',
-      'Estado': i.estado,
-      'Enlaces Evidencias': (archivosPorInspeccion[i.id] || []).join(' | ')
-    }));
+    const encabezados = ['Fecha Inspeccion','Transportadora','Responsable','Conductor','Tarjeta Propiedad','Destino','Tipo Vehiculo','Placa','Observaciones','Estado','Enlaces Evidencias'];
+    const filas = FILTRADAS_ACTUALES.map(i => [
+      i.fecha_inspeccion, TRANSPORTADORAS_MAP[i.transportadora_id] || '', i.responsable, i.conductor,
+      i.tarjeta_propiedad, i.destino || '', i.tipo_vehiculo || '', i.placa, i.observaciones || '',
+      i.estado, (archivosPorInspeccion[i.id] || []).join(' | ')
+    ]);
 
-    const ws = XLSX.utils.json_to_sheet(filas);
+    const datos = [encabezados, ...filas];
+    const ws = XLSX.utils.aoa_to_sheet(datos);
+
+    // Estilo del encabezado: fondo negro, texto dorado, negrita, centrado
+    const estiloHeader = {
+      fill: { fgColor: { rgb: '1A1A1A' } },
+      font: { color: { rgb: 'C9A84C' }, bold: true, sz: 11 },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border: { bottom: { style: 'thin', color: { rgb: 'C9A84C' } } }
+    };
+    encabezados.forEach((_, col) => {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (ws[cellRef]) ws[cellRef].s = estiloHeader;
+    });
+
+    // Estilo de filas alternas (zebra) para facilitar lectura
+    for (let r = 1; r < datos.length; r++) {
+      const esPar = r % 2 === 0;
+      for (let c = 0; c < encabezados.length; c++) {
+        const cellRef = XLSX.utils.encode_cell({ r, c });
+        if (ws[cellRef]) {
+          ws[cellRef].s = {
+            fill: { fgColor: { rgb: esPar ? 'FDF8ED' : 'FFFFFF' } },
+            font: { sz: 10 },
+            alignment: { vertical: 'center' }
+          };
+        }
+      }
+    }
+
+    // Anchos de columna ajustados al contenido
+    ws['!cols'] = encabezados.map((h, i) => {
+      const maxLen = Math.max(h.length, ...filas.map(f => String(f[i] ?? '').length));
+      return { wch: Math.min(Math.max(maxLen + 2, 14), 50) };
+    });
+
+    // Fija la fila de encabezado al hacer scroll
+    ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Inspecciones');
     XLSX.writeFile(wb, `Inspecciones_${PAIS_CODIGO}_${new Date().toISOString().slice(0,10)}.xlsx`);
