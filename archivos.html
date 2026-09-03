@@ -127,7 +127,8 @@ async function cargarCarpeta() {
 
   // En Supabase Storage, las "carpetas" son items sin metadata.id / sin extension real (heuristica: id null)
   const carpetas = data.filter(item => item.id === null);
-  const archivos = data.filter(item => item.id !== null);
+  const archivos = data.filter(item => item.id !== null && item.name !== '.emptyFolderPlaceholder');
+
 
   lista.innerHTML = '';
   carpetas.forEach(carpeta => {
