@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Repositorio de Archivos | L'Oreal Operations</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --black:#1a1a1a; --amber:#c9a84c; --amber-lt:#fdf8ed; --bg:#2b2b2b; --line:#e8e8e8; --muted:#8a8a8a; --card:#ffffff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); font-family:'Inter', -apple-system, sans-serif; color:var(--black); }
+  .page { width:min(1000px, calc(100% - 24px)); margin:0 auto; padding:24px 0 48px; }
+
+  .header { background:linear-gradient(135deg, #1a1a1a 0%, #000 100%); color:#fff; padding:20px 26px; border-radius:16px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+  .header h1 { margin:0; font-size:18px; font-weight:700; }
+  .pais-badge { background:var(--amber); color:#1a1a1a; padding:7px 16px; border-radius:10px; font-weight:700; font-size:13px; }
+
+  .breadcrumb { background:var(--card); border-radius:12px; padding:12px 18px; margin-bottom:16px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:13px; font-weight:600; }
+  .breadcrumb .crumb { cursor:pointer; color:var(--black); padding:4px 8px; border-radius:6px; }
+  .breadcrumb .crumb:hover { background:var(--amber-lt); }
+  .breadcrumb .crumb.active { color:var(--amber); cursor:default; }
+  .breadcrumb .crumb.active:hover { background:none; }
+  .breadcrumb .sep { color:var(--muted); }
+
+  .toolbar { display:flex; justify-content:flex-end; margin-bottom:12px; }
+  .btn-zip { background:#16a34a; color:#fff; border:none; padding:10px 18px; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .btn-zip:disabled { opacity:.5; cursor:not-allowed; }
+
+  .file-list { background:var(--card); border-radius:16px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,.08); }
+  .file-item { display:flex; align-items:center; gap:12px; padding:13px 18px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .file-item:last-child { border-bottom:0; }
+  .file-item:hover { background:#fafafa; }
+  .file-icon { font-size:20px; width:24px; text-align:center; }
+  .file-name { flex:1; font-size:13.5px; font-weight:500; }
+  .file-name.folder { font-weight:700; }
+  .file-download { color:var(--amber); font-size:12px; font-weight:600; text-decoration:none; padding:6px 12px; border-radius:8px; background:var(--amber-lt); }
+
+  .empty { text-align:center; padding:44px; color:var(--muted); font-weight:500; background:var(--card); border-radius:16px; }
+  .error-pais { text-align:center; padding:60px 20px; color:#dc2626; font-weight:600; font-size:15px; background:var(--card); border-radius:16px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <h1>Repositorio de Archivos</h1>
+    <div class="pais-badge" id="paisBadge">-</div>
+  </div>
+
+  <div class="breadcrumb" id="breadcrumb"></div>
+
+  <div class="toolbar">
+    <button class="btn-zip" id="btnZip" onclick="descargarZip()">⬇ Descargar carpeta actual en ZIP</button>
+  </div>
+
+  <div class="file-list" id="fileList">
+    <div class="empty">Cargando...</div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://ybqblngehgpqthmjsisj.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlicWJsbmdlaGdwcXRobWpzaXNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyMDY5MjYsImV4cCI6MjEwMzc4MjkyNn0.QOdM7HxPlRhdoA4X8xtIRXCK_noRgXygT1CtgZVdB3E";
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const params = new URLSearchParams(window.location.search);
+const PAIS_CODIGO = (params.get('pais') || '').toUpperCase();
+const NOMBRES_PAIS = { CO: 'Colombia', PE: 'Peru' };
+const BUCKET = 'inspecciones';
+
+let rutaActual = []; // ej: ['CO', '2026-09-02', 'QUICK']
+
+if (!PAIS_CODIGO || !NOMBRES_PAIS[PAIS_CODIGO]) {
+  document.getElementById('paisBadge').innerText = '?';
+  document.getElementById('breadcrumb').style.display = 'none';
+  document.querySelector('.toolbar').style.display = 'none';
+  document.getElementById('fileList').innerHTML =
+    '<div class="error-pais">Falta indicar el pais en el enlace.<br/>Usa ?pais=CO o ?pais=PE al final de la URL.</div>';
+} else {
+  document.getElementById('paisBadge').innerText = NOMBRES_PAIS[PAIS_CODIGO];
+  rutaActual = [PAIS_CODIGO];
+  cargarCarpeta();
+}
+
+function renderBreadcrumb() {
+  const cont = document.getElementById('breadcrumb');
+  cont.innerHTML = '';
+  rutaActual.forEach((segmento, idx) => {
+    const esUltimo = idx === rutaActual.length - 1;
+    const crumb = document.createElement('span');
+    crumb.className = 'crumb' + (esUltimo ? ' active' : '');
+    crumb.innerText = idx === 0 ? NOMBRES_PAIS[segmento] : segmento;
+    if (!esUltimo) {
+      crumb.onclick = () => { rutaActual = rutaActual.slice(0, idx + 1); cargarCarpeta(); };
+    }
+    cont.appendChild(crumb);
+    if (!esUltimo) {
+      const sep = document.createElement('span');
+      sep.className = 'sep';
+      sep.innerText = '/';
+      cont.appendChild(sep);
+    }
+  });
+}
+
+async function cargarCarpeta() {
+  renderBreadcrumb();
+  const lista = document.getElementById('fileList');
+  lista.innerHTML = '<div class="empty">Cargando...</div>';
+
+  const path = rutaActual.join('/');
+  const { data, error } = await db.storage.from(BUCKET).list(path, {
+    limit: 1000, sortBy: { column: 'name', order: 'asc' }
+  });
+
+  if (error) {
+    lista.innerHTML = `<div class="empty">Error: ${error.message}</div>`;
+    return;
+  }
+
+  if (!data || !data.length) {
+    lista.innerHTML = '<div class="empty">Esta carpeta esta vacia.</div>';
+    return;
+  }
+
+  // En Supabase Storage, las "carpetas" son items sin metadata.id / sin extension real (heuristica: id null)
+  const carpetas = data.filter(item => item.id === null);
+  const archivos = data.filter(item => item.id !== null);
+
+  lista.innerHTML = '';
+  carpetas.forEach(carpeta => {
+    const div = document.createElement('div');
+    div.className = 'file-item';
+    div.innerHTML = `<span class="file-icon">📁</span><span class="file-name folder">${esc(carpeta.name)}</span>`;
+    div.onclick = () => { rutaActual = [...rutaActual, carpeta.name]; cargarCarpeta(); };
+    lista.appendChild(div);
+  });
+
+  archivos.forEach(archivo => {
+    const fullPath = `${path}/${archivo.name}`;
+    const { data: pub } = db.storage.from(BUCKET).getPublicUrl(fullPath);
+    const icono = archivo.name.toLowerCase().endsWith('.pdf') ? '📄' : '🖼';
+    const div = document.createElement('div');
+    div.className = 'file-item';
+    div.innerHTML = `
+      <span class="file-icon">${icono}</span>
+      <span class="file-name">${esc(archivo.name)}</span>
+      <a class="file-download" href="${pub.publicUrl}" target="_blank" onclick="event.stopPropagation()">Ver / Descargar</a>
+    `;
+    lista.appendChild(div);
+  });
+
+  if (!carpetas.length && !archivos.length) {
+    lista.innerHTML = '<div class="empty">Esta carpeta esta vacia.</div>';
+  }
+}
+
+// Recorre recursivamente todas las subcarpetas para armar el ZIP con TODO lo que hay adentro
+async function listarRecursivo(path) {
+  const { data } = await db.storage.from(BUCKET).list(path, { limit: 1000 });
+  let resultado = [];
+  for (const item of (data || [])) {
+    const fullPath = `${path}/${item.name}`;
+    if (item.id === null) {
+      const sub = await listarRecursivo(fullPath);
+      resultado = resultado.concat(sub);
+    } else {
+      resultado.push(fullPath);
+    }
+  }
+  return resultado;
+}
+
+async function descargarZip() {
+  const btn = document.getElementById('btnZip');
+  btn.disabled = true;
+  btn.innerText = 'Preparando ZIP...';
+
+  try {
+    const path = rutaActual.join('/');
+    const archivos = await listarRecursivo(path);
+
+    if (!archivos.length) {
+      alert('No hay archivos en esta carpeta para descargar.');
+      return;
+    }
+
+    const zip = new JSZip();
+    let procesados = 0;
+
+    for (const filePath of archivos) {
+      const { data: pub } = db.storage.from(BUCKET).getPublicUrl(filePath);
+      const resp = await fetch(pub.publicUrl);
+      const blob = await resp.blob();
+      const nombreRelativo = filePath.replace(path + '/', '');
+      zip.file(nombreRelativo, blob);
+      procesados++;
+      btn.innerText = `Descargando ${procesados}/${archivos.length}...`;
+    }
+
+    btn.innerText = 'Generando ZIP...';
+    const contenido = await zip.generateAsync({ type: 'blob' });
+
+    const nombreZip = rutaActual.join('_') + '.zip';
+    const url = URL.createObjectURL(contenido);
+    const a = document.createElement('a');
+    a.href = url; a.download = nombreZip;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error(err);
+    alert('Error generando el ZIP: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerText = '⬇ Descargar carpeta actual en ZIP';
+  }
+}
+
+function esc(v) { return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>
