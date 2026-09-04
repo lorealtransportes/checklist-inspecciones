@@ -227,14 +227,23 @@ function renderChecklist() {
   ITEMS.forEach(item => c.insertAdjacentHTML('beforeend', filaHTML(item)));
 }
 
+
 function cargarFoto(e, id) {
-  const files = Array.from(e.target.files);
-  if (!files.length) return;
-  archivosFoto[id] = files;
+  const nuevos = Array.from(e.target.files);
+  if (!nuevos.length) return;
+
+  // Suma las fotos nuevas a las que ya estaban cargadas para este item (no las reemplaza)
+  archivosFoto[id] = (archivosFoto[id] || []).concat(nuevos);
+
+  // Limpia el input para que el navegador permita volver a abrir la camara/galeria
+  // y seguir agregando mas fotos despues
+  e.target.value = '';
+
   const btn = document.getElementById(`btnFoto_${id}`);
   btn.classList.add('has-file');
-  btn.innerHTML = `<span>${files.length} foto(s) cargada(s)</span>`;
+  btn.innerHTML = `<span>${archivosFoto[id].length} foto(s) cargada(s)</span>`;
 }
+
 
 function cargarPdf(e, id) {
   const f = e.target.files[0];
